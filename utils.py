@@ -19,22 +19,42 @@ def get_device(cpu):
     return torch.device("cuda")
 
 
+# def init_wandb(cfg, root_dir):
+#     if "wandb" not in cfg:
+#         return wandb.init(mode="disabled")
+#     return wandb.init(
+#         entity=cfg.wandb.entity,
+#         project=cfg.wandb.project,
+#         dir=root_dir,
+#         resume="auto",
+#     )
 def init_wandb(cfg, root_dir):
     if "wandb" not in cfg:
         return wandb.init(mode="disabled")
-    return wandb.init(
-        entity=cfg.wandb.entity,
-        project=cfg.wandb.project,
-        dir=root_dir,
-        resume="auto",
-    )
+
+    wandb_kwargs = {
+        "entity": cfg.wandb.entity,
+        "project": cfg.wandb.project,
+        "dir": root_dir,
+        "resume": "auto",
+        # "config": dict(cfg.vqvae.model)
+    }
+
+    if hasattr(cfg.wandb, 'name'):
+        wandb_kwargs["name"] = cfg.wandb.name
+
+    return wandb.init(config=dict(cfg.vqvae.model), **wandb_kwargs)
 
 
-def setup_directory(base="exp"):
+def setup_directory(cfg, base="exp"):
+    # cfg, 必須引数に追加したので注意
     root_dir = Path(base)
     root_dir.mkdir(exist_ok=True)
 
-    save_id = "vqvae_" + str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    save_id = "vqvae_" + str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S")) + str(cfg.wandb.name)
+
+    
+    # 名前をconfigから持ってくるように変更
 
     exp_dir = root_dir / save_id
     exp_dir.mkdir(exist_ok=True)
