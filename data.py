@@ -8,6 +8,7 @@ from pathlib import Path
 
 import logging
 from accelerate.logging import get_logger
+import os
 
 logger = get_logger(__file__)
 
@@ -30,10 +31,11 @@ class LatentDataset(torch.utils.data.Dataset):
 class FFHQDataset(torch.utils.data.Dataset):
     TRAIN_SPLIT_SIZE = 65_000
 
-    def __init__(self, root: Union[str, Path] = "data/ffhq1024", train: bool = True, transform: T = None):
+    def __init__(self, root: Union[str, Path] = "data/ffhq256", train: bool = True, transform: T = None):
         if isinstance(root, str):
             root = Path(root)
 
+        # print(f"Checking if root directory exists: {root}")
         assert root.is_dir()
         paths = list(root.glob("**/*.png"))
 
@@ -80,8 +82,11 @@ def get_dataset(cfg):
         train_dataset = torchvision.datasets.MNIST("data", train=True, transform=train_transforms, download=True)
         test_dataset = torchvision.datasets.MNIST("data", train=False, transform=test_transforms, download=True)
     elif cfg.data.name in ["ffhq1024", "ffhq256", "ffhq128"]:
-        train_dataset = FFHQDataset(f"data/{cfg.data.name}", train=True, transform=train_transforms)
-        test_dataset = FFHQDataset(f"data/{cfg.data.name}", train=False, transform=test_transforms)
+        absolute_path = os.path.join("/workspace/vqvae-2", "data", cfg.data.name)
+        train_dataset = FFHQDataset(absolute_path, train=True, transform=train_transforms)
+        test_dataset = FFHQDataset(absolute_path, train=False, transform=test_transforms)
+        # train_dataset = FFHQDataset(f"data/{cfg.data.name}", train=True, transform=train_transforms)
+        # test_dataset = FFHQDataset(f"data/{cfg.data.name}", train=False, transform=test_transforms)
     elif cfg.data.name in ["lhq1024", "lhq256", "lhq128"]:  # https://github.com/universome/alis/blob/master/lhq.md
         raise NotImplementedError
     elif cfg.data.name in ["afhq512", "afhq256", "afhq128"]:  # https://paperswithcode.com/dataset/afhq
