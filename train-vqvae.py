@@ -159,8 +159,8 @@ def main(cfg: DictConfig):
             )
             wandb_log.update(
                 {
-                    "input": wandb_module.Image(batch, caption="Input Image"),
-                    "recon": wandb_module.Image(recon, caption="Reconstruction"),
+                    "input": [wandb_module.Image(img, caption=f"Input Image {i}") for i, img in enumerate(batch)],
+                    "recon": [wandb_module.Image(img, caption=f"Reconstruction {i}") for i, img in enumerate(recon)],
                 }
             )
             for i in range(len(total_idx)):
