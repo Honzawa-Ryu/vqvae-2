@@ -23,7 +23,7 @@ import wandb as wandb_module
 
 import argparse
 
-# TODO: with class condtioned experiments, need to save class
+# TODO: with class conditioned experiments, need to save class
 def encode_loop(loader, net, cfg, out_dir, device):
     out_dir.mkdir()
 
