@@ -25,6 +25,8 @@ def init_wandb(cfg, root_dir):
     return wandb.init(
         entity=cfg.wandb.entity,
         project=cfg.wandb.project,
+        name=cfg.wandb.name,
+        notes=cfg.wandb.get("note") if cfg.wandb.get("note") else None,
         dir=root_dir,
         resume="auto",
     )
