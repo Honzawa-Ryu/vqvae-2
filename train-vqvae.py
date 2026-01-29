@@ -14,11 +14,12 @@ accelerator = Accelerator()
 import torch
 import torch.nn.functional as F
 from torchvision.utils import save_image
+import numpy as np
 
 from tqdm import tqdm
 
 from vqvae2 import VQVAE, VQVAE2
-from data import get_dataset
+from data import get_dataset, build_dataloaders
 from utils import init_wandb, MetricGroup, setup_directory
 
 import wandb as wandb_module
@@ -65,7 +66,7 @@ def main(cfg: DictConfig):
         cfg.vqvae.model, codebook_gumbel_temperature=0.1, codebook_init_type="kaiming_uniform", codebook_cosine=True
     )
     optim = torch.optim.AdamW(net.parameters(), lr=cfg.vqvae.training.lr)
-    train_loader, test_loader = get_dataset(cfg)
+    train_loader, test_loader = build_dataloaders(cfg)
 
     net, optim, train_loader, test_loader = accelerator.prepare(net, optim, train_loader, test_loader)
 
@@ -157,12 +158,40 @@ def main(cfg: DictConfig):
                 nrow=len(recon),
                 normalize=True,
             )
-            wandb_log.update(
-                {
-                    "input": [wandb_module.Image(img, caption=f"Input Image {i}") for i, img in enumerate(batch)],
-                    "recon": [wandb_module.Image(img, caption=f"Reconstruction {i}") for i, img in enumerate(recon)],
-                }
-            )
+
+            def finalize_for_wandb(img):
+                # 1. TensorをCPUへ移動し、NumPy配列に変換
+                if torch.is_tensor(img):
+                    img = img.detach().cpu().numpy()
+                
+                # 2. 形状 [C, H, W] を判別
+                if img.ndim == 3:
+                    if img.shape[0] == 1:
+                        # MNISTなど: [1, H, W] -> [H, W] (2次元に削減)
+                        img = img.squeeze(0)
+                    elif img.shape[0] == 3:
+                        # カラー画像: [3, H, W] -> [H, W, 3] (次元入れ替え)
+                        img = img.transpose(1, 2, 0)
+                        
+                # 3. 値の範囲を [0, 255] の uint8 に変換 (WandBの推奨)
+                # ※ 0-1に正規化されている前提
+                if img.dtype != np.uint8:
+                    # 0-1 の範囲を超えている場合のクリッピング（念のため）
+                    img = np.clip(img, 0, 1)
+                    img = (img * 255).astype(np.uint8)
+                    
+                return img
+
+            wandb_log.update({
+                "input": [
+                    wandb_module.Image(finalize_for_wandb(img), caption=f"Input {i}") 
+                    for i, img in enumerate(batch)
+                ],
+                "recon": [
+                    wandb_module.Image(finalize_for_wandb(img), caption=f"Recon {i}") 
+                    for i, img in enumerate(recon)
+                ],
+            })
             for i in range(len(total_idx)):
                 wandb_log["eval"].update(
                     {f"unused_codewords_proportion.{i}": (total_idx[i] == 0).sum() / cfg.vqvae.model.codebook_size}
