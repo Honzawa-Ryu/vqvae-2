@@ -137,3 +137,5 @@ exp/
 
 venv/
 latent-dataset*
+
+config/

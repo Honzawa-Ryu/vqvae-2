@@ -19,7 +19,7 @@ import numpy as np
 from tqdm import tqdm
 
 from vqvae2 import VQVAE, VQVAE2
-from data import get_dataset, build_dataloaders
+from data import get_dataset, build_dataloaders, idx_dataloaders
 from utils import init_wandb, MetricGroup, setup_directory
 
 import wandb as wandb_module
@@ -66,7 +66,8 @@ def main(cfg: DictConfig):
         cfg.vqvae.model, codebook_gumbel_temperature=0.1, codebook_init_type="kaiming_uniform", codebook_cosine=True
     )
     optim = torch.optim.AdamW(net.parameters(), lr=cfg.vqvae.training.lr)
-    train_loader, test_loader = build_dataloaders(cfg)
+    # train_loader, test_loader = build_dataloaders(cfg)
+    train_loader, test_loader = idx_dataloaders('/workspace/02_inhouse-vqvae/VQVAE/data/preprocessed_patches/benign', 32, 0.00125)
 
     net, optim, train_loader, test_loader = accelerator.prepare(net, optim, train_loader, test_loader)
 
@@ -137,14 +138,17 @@ def main(cfg: DictConfig):
         metrics = MetricGroup("loss", "mse_loss", "kl_loss")
         net.eval()
         with torch.no_grad():
+            print("A")
             total_idx = [
                 torch.zeros(cfg.vqvae.model.codebook_size).cpu().long() for _ in cfg.vqvae.model.resample_factors
             ]
             for batch in test_loader:
                 if isinstance(batch, (list, tuple)):
                     batch, *_ = batch
+                    print("B")
                 loss, *m, recon, idx = loss_fn(net, batch)
                 metrics.log(loss, *m)
+                print("C")
                 for i in range(len(idx)):
                     total_idx[i] += torch.bincount(idx[i].cpu().flatten(), minlength=cfg.vqvae.model.codebook_size)
 

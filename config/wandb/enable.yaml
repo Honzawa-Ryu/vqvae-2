@@ -1,2 +1,4 @@
-entity: afmck
-project: vqvae-dev
+entity: benzelongji-the-university-of-tokyo
+project: hist_vqvae2
+name: kernel32
+note: カーネルサイズによる性能の違いを検討する目的

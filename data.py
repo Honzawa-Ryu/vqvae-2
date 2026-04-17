@@ -1,6 +1,8 @@
 import torch
 import torchvision
 import torchvision.transforms as T
+from torchvision import datasets
+from torch.utils.data import Dataset, DataLoader, Subset, random_split
 
 from PIL import Image
 from typing import Optional, List, Union
@@ -284,3 +286,62 @@ class ImageFolderSplitStrategy(DatasetStrategy):
         logging.info(f"検証データ数: {len(val_dataset)}")
 
         return train_dataset, val_dataset
+    
+def idx_dataloaders(data_dir, batch_size, train_val_split=0.8, image_size=(256, 256), sampling_rate=None):
+    transform = T.Compose([
+        T.Resize(image_size),
+        T.ToTensor(),
+        # RandomGammaVolume(p=0.5),
+        # RandomGaussianNoise(p=0.5)
+        T.Normalize((0.8259633779525757, 0.4840644896030426, 0.6278038620948792), (0.12393593788146973, 0.19072337448596954, 0.15796850621700287))
+    ])
+
+    full_dataset = datasets.ImageFolder(root=data_dir, transform=transform)
+    print(f"クラス情報: {full_dataset.class_to_idx}")
+    print(f"元の合計画像数: {len(full_dataset)}")
+
+    if sampling_rate is not None:
+        if not (0.0 < sampling_rate <= 1.0):
+            raise ValueError("Sampling_rateは0.0より大きく1.0以下の値でなければなりません。")
+        
+        num_samples = int(len(full_dataset) * sampling_rate)
+        
+        torch.manual_seed(42)
+        indices = torch.randperm(len(full_dataset))[:num_samples]
+        
+        sampled_dataset = Subset(full_dataset, indices)
+        
+        print(f"サンプリング適用後 ({sampling_rate * 100}%)")
+        print(f"  -> サンプリング後の合計画像数: {len(sampled_dataset)}")
+        dataset_to_split = sampled_dataset
+    else:
+        dataset_to_split = full_dataset
+
+    # 3. データセットを訓練用と検証用に分割
+    # 訓練用のデータ数を計算
+    train_size = int(train_val_split * len(dataset_to_split))
+    # 検証用のデータ数を計算
+    val_size = len(dataset_to_split) - train_size
+
+    # torch.manual_seedで乱数を固定し、再現性を確保することも可能
+    torch.manual_seed(42)
+    train_dataset, val_dataset = random_split(dataset_to_split, [train_size, val_size])
+
+    print(f"訓練データ数: {len(train_dataset)}")
+    print(f"検証データ数: {len(val_dataset)}")
+
+    data_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=32,
+        pin_memory=True
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=32,
+        pin_memory=True
+    )
+    return data_loader, val_loader
